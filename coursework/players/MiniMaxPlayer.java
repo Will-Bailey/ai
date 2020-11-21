@@ -24,12 +24,13 @@ public class MiniMaxPlayer extends RandomPlayer {
         super(state, index, game);
     }
 
+    
+    /**
+     * The interface function that is called by the game to perform a move.The function contains much of the same logic as the
+     * recursively called getMaxUtility() with the exception that this function picks a single move rather than returning a
+     * list of utilities
+     */
     public void doMove() {
-        int move = chooseMove(this.game);
-        state.setOrientation(index, move);
-    }
-
-    public int chooseMove(Snake game) {
         long startTime= System.currentTimeMillis();
         long timeup = startTime + 100;
         
@@ -73,10 +74,25 @@ public class MiniMaxPlayer extends RandomPlayer {
             if (System.currentTimeMillis() < timeup)
                 lastBestMove = bestMove;
         }
-        return lastBestMove;
+
+        state.setOrientation(index, lastBestMove);
     }
 
-    //Predict the moves that players will make and return the state that gives the current player the highest utility. Assumes all other players are playing using the same utility as the MiniMax Player
+
+    /**
+     * The main recursive funtion, used to predict which move a player will make based on the utilities that can be reached
+     * from the outcomes.
+     * The value returned is identical to what would be returned by:
+     *
+     *
+     * @param  state the current state of the game at the point where the move is bening chosen
+     * @param  currentPlayer the player who's turn it is. This is the player that will me maximising the utility they can achieve
+     * @param  depth the current depth of the search 
+     * @param  depthLimit the maximum depth that the search will be allowed to reach before incrementing the iterative deepening
+     * @param  timeup the value wdhich, when compared to the current clock time will tell the algorithm if it's time limit has expired
+     * 
+     * @return a list of utilities (one for each player) that are resultant of currentPlayer picking the move that maximises thier utility.
+     */
     public List<Double> getMaxUtility(GameState state, int currentPlayer, int depth, int depthLimit, long timeup) {
         //Initialise variables
         double myAverageValue=0;
