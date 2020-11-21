@@ -25,7 +25,8 @@ public class MiniMaxPlayer extends RandomPlayer {
     }
 
     public void doMove() {
-        state.setOrientation(index, chooseMove(this.game));
+        int move = chooseMove(this.game);
+        state.setOrientation(index, move);
     }
 
     public int chooseMove(Snake game) {
@@ -36,81 +37,126 @@ public class MiniMaxPlayer extends RandomPlayer {
         int depth = 0;
         int depthLimit = 5;
         int player = getIndex();
+        int nextPlayer = getNextPlayer(state, player);
         
-        int bestMove = -1;
-        int lastBest = -1;
-        int bestValue = 0;
-        int lastMove;
+        int bestMove;
+        int lastBestMove=1;
+        double bestValue;
+        double myNewValue;
 
         for (; System.currentTimeMillis() < timeup; depthLimit++){
             //Reinitialise variables for this iteration of depthLimit
             depth = 0;
             bestMove = -1;
             bestValue = 0;
+            myNewValue = 0;
 
             //Start searching the tree of possible outcomes
-            for (GameState child : getChildren(state, player)) {
-                int value = claimSpaceUtility(getNextState(child, getNextPlayer(state, player), depth, depthLimit, timeup), player);
-                
-                if(System.currentTimeMillis() > timeup){
-                    break;
+            for (int move : getLegalMoves(state, player)){
+                GameState nextState = tryMove(player, move, state);
+
+                //Compare the next state's utility to the current best state and replace where necessary.
+                List<Double> newValues = getMaxUtility(nextState, nextPlayer, depth+1, depthLimit, timeup);
+
+                if (newValues.size() > 0) {
+                    myNewValue = newValues.get(player);
+                } else {
+                    myNewValue = Integer.MIN_VALUE;
                 }
 
-                if (bestMove == -1 || value > bestValue){
-                    bestValue = value;
-                    bestMove = child.getLastOrientation(player);
+                if (bestMove == -1 || myNewValue > bestValue) {
+                    bestValue = myNewValue;
+                    bestMove = move;
                 }
             }
+
             if (System.currentTimeMillis() < timeup)
-            lastBest = bestMove;
+                lastBestMove = bestMove;
         }
-        lastMove = lastBest;
-        return lastMove;
+        return lastBestMove;
     }
 
     //Predict the moves that players will make and return the state that gives the current player the highest utility. Assumes all other players are playing using the same utility as the MiniMax Player
-    public GameState getNextState(GameState state, int currentPlayer, int depth, int depthLimit, long timeup) {
-        //If we have searched up to the depth limit or the state we're exploring is game over, stop recurtsing and return the current state.
-        if(state.isGameOver() || depth == depthLimit) {
-            return state;
-        } else {
-            //Initialise variables
-            int nextPlayer;
-            int value;
-            int bestValue=0;
-            GameState bestChild = state;
-            GameState newChild = state;
-            
-            //for each possible state that can be reached from the current state in one move.
-            for (GameState child : getChildren(state, currentPlayer)){
-                if (System.currentTimeMillis() > timeup) {
-                    return state;
-                }
-
-                nextPlayer = getNextPlayer(state, currentPlayer);
-                
-                //Compate the child to the current best state and replace where necessary.
-                newChild = getNextState(child, nextPlayer, depth+1, depthLimit, timeup);
-                value = claimSpaceUtility(newChild, currentPlayer);
-
-                if (value > bestValue) {
-                    bestValue = value;
-                    bestChild = child;
-                }
+    public List<Double> getMaxUtility(GameState state, int currentPlayer, int depth, int depthLimit, long timeup) {
+        //Initialise variables
+        double myAverageValue=0;
+        double bestValue = -Double.MAX_VALUE;
+        List<Double> bestValues = new ArrayList<Double>();
+        int nextPlayer = getNextPlayer(state, currentPlayer);
+        List<GameState> potentialStates = new ArrayList<GameState>();
+        
+        boolean willScore = false;
+        for (int i=0; i<state.getNrPlayers(); i++) {
+            if (willScore(state, i)) {
+                willScore = true;
             }
-            return bestChild;
         }
+
+        //If we have searched up to the depth limit or the state we're exploring is game over, stop recursing and return the current state's utility values for each player.
+        if(state.isGameOver() || depth == depthLimit)
+            return getAllUtilities(state);
+
+        //Fore
+        for (int move : getLegalMoves(state, currentPlayer)){
+            List<List<Double>> potentialValues = new ArrayList<List<Double>>();
+                        
+            if (System.currentTimeMillis() > timeup) {
+                return new ArrayList<Double>();
+            }
+
+            //Compare the next state's utility to the current best state and replace where necessary.
+            if (willScore) {
+                potentialStates = getPotentialStates(state);
+            } else {
+                GameState nextState = tryMove(currentPlayer, move, state);
+                potentialStates.add(nextState);
+            }
+
+            //For
+            for (GameState potentialState : potentialStates) {
+                List<Double> newValues = getMaxUtility(potentialState, nextPlayer, depth+1, depthLimit, timeup);
+                if (newValues.size() > 0) {
+                    potentialValues.add(newValues);
+                } 
+            }
+            
+            List<Double> averageValues = calcAverages(potentialValues, state.getNrPlayers());
+
+            myAverageValue = averageValues.get(currentPlayer);
+
+            if (myAverageValue > bestValue) {
+                bestValue = myAverageValue;
+                bestValues = averageValues; 
+            }
+        }
+        return bestValues;
     }
 
     //Return and array list of all the states that can be reached from the current state by the player
-    public List<GameState> getChildren(GameState state, int player) {
-        List<GameState> children = new ArrayList<GameState>();
-        for (int i=1; i <= 4; i++) {
+    public List<GameState> getNextStates(GameState state, int player) {
+        List<GameState> nextStates = new ArrayList<GameState>();
+        for (int i=1; i<=4; i++) {
             if(state.isLegalMove(player, i)){
-                children.add(tryMove(player, i, state));
+                nextStates.add(tryMove(player, i, state));
             }
         }
-    return children;
+    return nextStates;
+    }
+
+    public List<Double> calcAverages(List<List<Double>> input, int nrPlayers) {
+        //Initialise the output array with the correct size and filled with 0s
+        List<Double> output = new ArrayList<Double>();
+        for (int i=0; i<nrPlayers; i++) {
+            output.add(i, 0.0);
+        }
+
+        //For each set of values in the input, add them to the 
+        for (List<Double> i : input) {
+            for (int j=0; j<i.size(); j++) {
+                output.set(j, (output.get(j)+i.get(j))/input.size());
+            }
+        }
+        return output;
     }
 
     //Return the resultant state of the given player making the given when in teh given state
@@ -119,6 +165,17 @@ public class MiniMaxPlayer extends RandomPlayer {
         newState.setOrientation(player, move);
         newState.updatePlayerPosition(player);
         return newState;
+    }
+
+    //Find the moves that a given playert can take from a given state
+    public List<Integer> getLegalMoves(GameState state, int player) {
+        List<Integer> legalMoves = new ArrayList<Integer>();
+        for (int i=1; i<=4; i++) {
+            if (state.isLegalMove(player, i)) {
+                legalMoves.add(i);
+            }
+        }
+        return legalMoves;
     }
 
     //Find which player will take the next move
@@ -131,8 +188,16 @@ public class MiniMaxPlayer extends RandomPlayer {
         return nextPlayer;
     }
 
+    public List<Double> getAllUtilities(GameState state) {
+        List<Double> utilities = new ArrayList<Double>();
+        for (int player=0; player<state.getNrPlayers(); player++) {
+            utilities.add(player, getUtility(state, player));
+        }
+        return utilities;
+    }
+
     //Return the utility of a given state fora  given player. Will rturn -1 if the player is dead and will return max value if the player is the last one alive.
-    public int getUtility(GameState state, int player) {
+    public double getUtility(GameState state, int player) {
         //Count how many players are dead
         int countDead=0;
         for (int i=1; i<state.getNrPlayers(); i++) {
@@ -143,11 +208,11 @@ public class MiniMaxPlayer extends RandomPlayer {
 
         //If player is the last one alive (and has therefore won the game)
         if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
-            return Integer.MAX_VALUE;
+            return Double.MAX_VALUE;
         
         //If player is dead
         } else if (state.isDead(player)){
-            return Integer.MIN_VALUE;
+            return -Double.MAX_VALUE;
 
         //If the player will score        
         } else if (willScore(state, player)){
@@ -164,16 +229,20 @@ public class MiniMaxPlayer extends RandomPlayer {
 
     //return a boolean value stating whether the player will score a point from the given state. This is needed to know when a chance move is going to be taken.
     public boolean willScore(GameState state, int player) {
+        if (state.isDead(player)) {
+            return false;
+        }
+
         int size = state.getSize(player);
-        for (GameState child : getChildren(state, player)){
-            if(child.getSize(player) > size) {
+        for (GameState nextState : getNextStates(state, player)){
+            if(nextState.getSize(player) > size) {
                 return true;
             }
         }
         return false;
     }
 
-    public List<GameState> predictTargetStates(GameState state) {
+    public List<GameState> getPotentialStates(GameState state) {
         List<GameState> potentialTargetStates = new ArrayList<GameState>();
         for (int i=1; i<=5; i++) {
             GameState potentialTargetState = new GameState(state);
@@ -181,34 +250,5 @@ public class MiniMaxPlayer extends RandomPlayer {
             potentialTargetStates.add(potentialTargetState);
         }
         return potentialTargetStates;
-    }
-
-    public int claimSpaceUtility(GameState state, int player) {
-        //Count how many players are dead
-        int countDead=0;
-        for (int i=1; i<state.getNrPlayers(); i++) {
-            if(state.isDead(i)) {
-                countDead++;
-            }
-        }
-
-        //If player is the last one alive (and has therefore won the game)
-        if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
-            return Integer.MAX_VALUE;
-        
-        //If player is dead
-        } else if (state.isDead(player)){
-            return Integer.MIN_VALUE;
-
-        } else {
-            int utility=0;
-            for (int opponent=0; opponent<state.getNrPlayers(); opponent++) {
-                if (!(opponent==player)) {
-                    utility += Math.abs(state.getPlayerX(opponent).get(0) - state.getPlayerX(player).get(0));
-                    utility += Math.abs(state.getPlayerY(opponent).get(0) - state.getPlayerY(player).get(0));
-                }   
-            }
-            return utility;
-        }
     }
 }

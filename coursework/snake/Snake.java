@@ -27,9 +27,9 @@ public class Snake {
 
         players = new SnakePlayer[nrPlayers];
         players[0] = new MiniMaxPlayer(state, 0, this);
-        players[1] = new MiniMaxPlayer(state, 1, this);
-        players[2] = new MiniMaxPlayer(state, 2, this);
-        players[3] = new MiniMaxPlayer(state, 3, this);
+        players[1] = new MiniMaxPlayerOutdated(state, 1, this);
+        players[2] = new AStarPlayer(state, 2, this);
+        players[3] = new RandomPlayer(state, 3, this);
 
         for (int i = 0; i < nrPlayers; i++) {
             players[i].setDisplay(display);
