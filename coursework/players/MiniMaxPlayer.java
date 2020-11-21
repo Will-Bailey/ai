@@ -255,6 +255,10 @@ public class MiniMaxPlayer extends RandomPlayer {
         }
     }
 
+    public double calcUtility(GameState currentState, int player, int movingPlayer, int move) {
+        return 0;
+    }
+
     //return a boolean value stating whether the player will score a point from the given state. This is needed to know when a chance move is going to be taken.
     public boolean willScore(GameState state, int player, int move) {
         GameState nextState = tryMove(state, player, move);
