@@ -36,7 +36,7 @@ public class MiniMaxPlayer extends RandomPlayer {
         
         GameState state = this.state;
         int depth = 0;
-        int depthLimit = 5;
+        int depthLimit = 3;
         int player = getIndex();
         int nextPlayer = getNextPlayer(state, player);
         
@@ -222,15 +222,6 @@ public class MiniMaxPlayer extends RandomPlayer {
             }
         }
 
-        //can the player score form the current state
-        boolean couldScore=false;
-        for (int i=1; i<=4; i++) {
-            if (willScore(state, player, i)){
-                couldScore = true;
-            }
-        }
-
-
         //If player is the last one alive (and has therefore won the game)
         if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
             return Double.MAX_VALUE;
@@ -241,15 +232,10 @@ public class MiniMaxPlayer extends RandomPlayer {
             return -Double.MAX_VALUE;
         }
 
-        //If the player will score        
-        else if (couldScore){
-            return state.getHeight() + state.getWidth() + 1; 
-        }
-
         else {
             int utility=0;    
             utility = -(Math.abs(state.getTargetX() - state.getPlayerX(player).get(0)) + Math.abs(state.getTargetY() - state.getPlayerY(player).get(0)));
-            state.updatePlayerPosition(player);
+            utility += state.getSize(player) * 1000;
 
             return utility;
         }
