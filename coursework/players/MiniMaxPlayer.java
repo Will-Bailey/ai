@@ -157,7 +157,6 @@ public class MiniMaxPlayer extends RandomPlayer {
             return input.get(0);
         }
 
-        System.out.println("Averageing " + input);
 
         //Initialise the output array with the correct size
         List<Double> output = new ArrayList<Double>();
@@ -184,8 +183,6 @@ public class MiniMaxPlayer extends RandomPlayer {
         for (int i=0; i<output.size(); i++) {
             output.set(i, output.get(i)/input.size());
         }
-
-        System.out.println("Result " + output);
 
         return output;
     }
