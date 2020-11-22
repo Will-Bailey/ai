@@ -41,33 +41,45 @@ public class MiniMaxPlayer extends RandomPlayer {
         int nextPlayer = getNextPlayer(state, player);
         
         int bestMove;
-        int lastBestMove=1;
+        int lastBestMove=-1;
         double bestValue;
-        double myNewValue;
+        double myAverageValue;
 
         for (; System.currentTimeMillis() < timeup; depthLimit++){
             //Reinitialise variables for this iteration of depthLimit
             depth = 0;
             bestMove = -1;
             bestValue = 0;
-            myNewValue = 0;
+            myAverageValue = 0;
 
             //Start searching the tree of possible outcomes
             for (int move : getLegalMoves(state, player)){
-                GameState nextState = tryMove(state, player, move);
+                List<GameState> predictedStates = new ArrayList<GameState>();
+                List<List<Double>> potentialValues = new ArrayList<List<Double>>();
 
-                //Compare the next state's utility to the current best state and replace where necessary.
-                List<Double> newValues = getMaxUtility(nextState, nextPlayer, depth+1, depthLimit, timeup);
-
-                if (newValues.size() > 0) {
-                    myNewValue = newValues.get(player);
+                //Create an array of the states that could stem from this move. In most cases this is just the state that comes from executing the move. In the case where this move scores a point however, there will be multiple states that could come from the move. 
+                if (willScore(state, player, move)) {
+                    predictedStates = predictStates(state);
                 } else {
-                    myNewValue = Integer.MIN_VALUE;
+                    GameState nextState = tryMove(state, player, move);
+                    predictedStates.add(nextState);
                 }
 
-                if (bestMove == -1 || myNewValue > bestValue) {
-                    bestValue = myNewValue;
-                    bestMove = move;
+                //For
+                for (GameState predictedState : predictedStates) {
+                    List<Double> newValues = getMaxUtility(predictedState, nextPlayer, depth+1, depthLimit, timeup);
+                    if (newValues.size() > 0) {
+                        potentialValues.add(newValues);
+                    } 
+                }
+                
+                List<Double> averageValues = calcAverages(potentialValues, state.getNrPlayers());
+
+                myAverageValue = averageValues.get(player);
+
+                if (bestMove ==-1  || myAverageValue > bestValue) {
+                    bestValue = myAverageValue;
+                    bestMove = move; 
                 }
             }
 
@@ -82,30 +94,30 @@ public class MiniMaxPlayer extends RandomPlayer {
     /**
      * The main recursive funtion, used to predict which move a player will make based on the utilities that can be reached
      * from the outcomes.
-     * The value returned is identical to what would be returned by:
      *
-     *
-     * @param  state the current state of the game at the point where the move is bening chosen
-     * @param  currentPlayer the player who's turn it is. This is the player that will me maximising the utility they can achieve
-     * @param  depth the current depth of the search 
-     * @param  depthLimit the maximum depth that the search will be allowed to reach before incrementing the iterative deepening
-     * @param  timeup the value wdhich, when compared to the current clock time will tell the algorithm if it's time limit has expired
+     * @param state      the current state of the game at the point where the move is bening chosen
+     * @param player     the player who's turn it is. This is the player that will me maximising the utility they can achieve
+     * @param depth      the current depth of the search 
+     * @param depthLimit the maximum depth that the search will be allowed to reach before incrementing the iterative deepening
+     * @param timeup     the value wdhich, when compared to the current clock time will tell the algorithm if it's time limit
+     *                   has expired
      * 
-     * @return a list of utilities (one for each player) that are resultant of currentPlayer picking the move that maximises thier utility.
+     * @return a list of utilities (one for each player) that are resultant of player picking the move that maximises
+     *         their utility.
      */
-    public List<Double> getMaxUtility(GameState state, int currentPlayer, int depth, int depthLimit, long timeup) {
+    public List<Double> getMaxUtility(GameState state, int player, int depth, int depthLimit, long timeup) {
         //Initialise variables
         double myAverageValue=0;
         double bestValue = -Double.MAX_VALUE;
-        int nextPlayer = getNextPlayer(state, currentPlayer);
+        int nextPlayer = getNextPlayer(state, player);
         List<Double> bestValues = new ArrayList<Double>();
 
         //If we have searched up to the depth limit or the state we're exploring is game over, stop recursing and return the current state's utility values for each player.
         if(state.isGameOver() || depth == depthLimit)
             return getAllUtilities(state);
 
-        //For each move that currentPlayer could choose, find the resultant utility values for each player and pick the one that's best for currentPlayer
-        for (int move : getLegalMoves(state, currentPlayer)){
+        //For each move that player could choose, find the resultant utility values for each player and pick the one that's best for player
+        for (int move : getLegalMoves(state, player)){
             if (System.currentTimeMillis() > timeup) {
                 return new ArrayList<Double>();
             }
@@ -114,10 +126,10 @@ public class MiniMaxPlayer extends RandomPlayer {
             List<List<Double>> potentialValues = new ArrayList<List<Double>>();
 
             //Create an array of the states that could stem from this move. In most cases this is just the state that comes from executing the move. In the case where this move scores a point however, there will be multiple states that could come from the move. 
-            if (willScore(state, currentPlayer, move)) {
+            if (willScore(state, player, move)) {
                 predictedStates = predictStates(state);
             } else {
-                GameState nextState = tryMove(state, currentPlayer, move);
+                GameState nextState = tryMove(state, player, move);
                 predictedStates.add(nextState);
             }
 
@@ -131,7 +143,7 @@ public class MiniMaxPlayer extends RandomPlayer {
             
             List<Double> averageValues = calcAverages(potentialValues, state.getNrPlayers());
 
-            myAverageValue = averageValues.get(currentPlayer);
+            myAverageValue = averageValues.get(player);
 
             if (myAverageValue > bestValue) {
                 bestValue = myAverageValue;
@@ -141,28 +153,26 @@ public class MiniMaxPlayer extends RandomPlayer {
         return bestValues;
     }
 
-    //Return and array list of all the states that can be reached from the current state by the player
-    public List<GameState> getNextStates(GameState state, int player) {
-        List<GameState> nextStates = new ArrayList<GameState>();
-        for (int i=1; i<=4; i++) {
-            if(state.isLegalMove(player, i)){
-                nextStates.add(tryMove(state, player, i));
-            }
-        }
-    return nextStates;
-    }
-
+    /**
+     * A utility function used in the chance node implementation. This function takes a list of lists where each list is the
+     * utilities for each player in a potential state. The function returns a list of values each one being the average of the
+     * values from the same index in each of the otehr lists.
+     *
+     * @param input     the list of lists that that need to be averaged
+     * @param nrPlayers the number of elements in each list, this is needed to iterate over the lists properly (this should
+     *                  also be the size of the outputted list)
+     *
+     * @return a list of doubles, the same length of each of the sub-lists in the input where each element n is the average of
+     *         the nth values in each of the sub-lists in the input. 
+    **/
     public List<Double> calcAverages(List<List<Double>> input, int nrPlayers) {
         //Initialise the output array with the correct size and filled with 0s
-        //System.out.println("Calculating the average of:");
-        //System.out.println(input);
-
         List<Double> output = new ArrayList<Double>();
         for (int i=0; i<nrPlayers; i++) {
             output.add(i, 0.0);
         }
 
-        //For each set of values in the input, add them to the 
+        //For each sub-list in the input, calculate it's contribution to the averages and add it on to the current value in the averages list
         for (List<Double> i : input) {
             for (int j=0; j<i.size(); j++) {
                 double current = output.get(j);
@@ -170,12 +180,10 @@ public class MiniMaxPlayer extends RandomPlayer {
             }
         }
 
-        //System.out.println(output);
-
         return output;
     }
 
-    //Return the resultant state of the given player making the given when in teh given state
+    //Return the resultant state of the given player making the given when in the given state
     public GameState tryMove(GameState startState, int player, int move) {
         GameState newState = new GameState(startState);
         newState.setOrientation(player, move);
@@ -195,9 +203,9 @@ public class MiniMaxPlayer extends RandomPlayer {
     }
 
     //Find which player will take the next move
-    public int getNextPlayer(GameState state, int currentPlayer) {
+    public int getNextPlayer(GameState state, int player) {
         int nextPlayer;
-        nextPlayer = (currentPlayer + 1) % state.getNrPlayers();
+        nextPlayer = (player + 1) % state.getNrPlayers();
         while (state.isDead(nextPlayer)) {
             nextPlayer = (nextPlayer + 1) % state.getNrPlayers();
         }
@@ -224,12 +232,12 @@ public class MiniMaxPlayer extends RandomPlayer {
 
         //If player is the last one alive (and has therefore won the game)
         if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
-            return Double.MAX_VALUE;
+            return 1000;
         }
         
         //If player is dead
         else if (state.isDead(player)){
-            return -Double.MAX_VALUE;
+            return -1000;
         }
 
         else {
@@ -239,10 +247,6 @@ public class MiniMaxPlayer extends RandomPlayer {
 
             return utility;
         }
-    }
-
-    public double calcUtility(GameState currentState, int player, int movingPlayer, int move) {
-        return 0;
     }
 
     //return a boolean value stating whether the player will score a point from the given state. This is needed to know when a chance move is going to be taken.
@@ -260,12 +264,12 @@ public class MiniMaxPlayer extends RandomPlayer {
     }
 
     public List<GameState> predictStates(GameState state) {
-        List<GameState> potentialTargetStates = new ArrayList<GameState>();
+        List<GameState> potentials = new ArrayList<GameState>();
         for (int i=1; i<=5; i++) {
-            GameState potentialTargetState = new GameState(state);
-            potentialTargetState.chooseNextTarget();
-            potentialTargetStates.add(potentialTargetState);
+            GameState potential = new GameState(state);
+            potential.chooseNextTarget();
+            potentials.add(potential);
         }
-        return potentialTargetStates;
+        return potentials;
     }
 }
