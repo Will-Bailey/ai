@@ -32,53 +32,37 @@ public class MiniMaxPlayer extends RandomPlayer {
      */
     public void doMove() {
         long startTime= System.currentTimeMillis();
-        long timeup = startTime + 100;
+        long timeup = startTime + 90;
         
         GameState state = this.state;
         int depth = 0;
-        int depthLimit = 3;
+        int depthLimit = 5;
         int player = getIndex();
-        int nextPlayer = getNextPlayer(state, player);
         
         int bestMove;
         int lastBestMove=-1;
         double bestValue;
-        double myAverageValue;
+        double myValue;
 
         for (; System.currentTimeMillis() < timeup; depthLimit++){
             //Reinitialise variables for this iteration of depthLimit
             depth = 0;
             bestMove = -1;
-            bestValue = 0;
-            myAverageValue = 0;
+            bestValue = -Double.MAX_VALUE;
+            myValue = -Double.MAX_VALUE;
 
             //Start searching the tree of possible outcomes
             for (int move : getLegalMoves(state, player)){
-                List<GameState> predictedStates = new ArrayList<GameState>();
-                List<List<Double>> potentialValues = new ArrayList<List<Double>>();
-
-                //Create an array of the states that could stem from this move. In most cases this is just the state that comes from executing the move. In the case where this move scores a point however, there will be multiple states that could come from the move. 
-                if (willScore(state, player, move)) {
-                    predictedStates = predictStates(state);
-                } else {
-                    GameState nextState = tryMove(state, player, move);
-                    predictedStates.add(nextState);
-                }
-
-                //For
-                for (GameState predictedState : predictedStates) {
-                    List<Double> newValues = getMaxUtility(predictedState, nextPlayer, depth+1, depthLimit, timeup);
-                    if (newValues.size() > 0) {
-                        potentialValues.add(newValues);
-                    } 
-                }
+                GameState nextState = tryMove(state, player, move);
+                int nextPlayer = getNextPlayer(nextState, player);
+                List<Double> values = getMaxUtility(nextState, nextPlayer, depth, depthLimit, timeup);
                 
-                List<Double> averageValues = calcAverages(potentialValues, state.getNrPlayers());
+                if (values.size()>0) {
+                    myValue = values.get(player);
+                }
 
-                myAverageValue = averageValues.get(player);
-
-                if (bestMove ==-1  || myAverageValue > bestValue) {
-                    bestValue = myAverageValue;
+                if (bestMove == -1  || myValue > bestValue) {
+                    bestValue = myValue;
                     bestMove = move; 
                 }
             }
@@ -126,10 +110,10 @@ public class MiniMaxPlayer extends RandomPlayer {
             List<List<Double>> potentialValues = new ArrayList<List<Double>>();
 
             //Create an array of the states that could stem from this move. In most cases this is just the state that comes from executing the move. In the case where this move scores a point however, there will be multiple states that could come from the move. 
+            GameState nextState = tryMove(state, player, move);
             if (willScore(state, player, move)) {
-                predictedStates = predictStates(state);
+                predictedStates = predictStates(nextState);
             } else {
-                GameState nextState = tryMove(state, player, move);
                 predictedStates.add(nextState);
             }
 
@@ -143,11 +127,13 @@ public class MiniMaxPlayer extends RandomPlayer {
             
             List<Double> averageValues = calcAverages(potentialValues, state.getNrPlayers());
 
-            myAverageValue = averageValues.get(player);
+            if (averageValues.size()>0) {
+                myAverageValue = averageValues.get(player);
 
-            if (myAverageValue > bestValue) {
-                bestValue = myAverageValue;
-                bestValues = averageValues; 
+                if (myAverageValue > bestValue) {
+                    bestValue = myAverageValue;
+                    bestValues = averageValues; 
+                }
             }
         }
         return bestValues;
@@ -166,8 +152,23 @@ public class MiniMaxPlayer extends RandomPlayer {
      *         the nth values in each of the sub-lists in the input. 
     **/
     public List<Double> calcAverages(List<List<Double>> input, int nrPlayers) {
-        //Initialise the output array with the correct size and filled with 0s
+
+        if (input.size()==1) {
+            return input.get(0);
+        }
+
+        System.out.println("Averageing " + input);
+
+        //Initialise the output array with the correct size
         List<Double> output = new ArrayList<Double>();
+
+        //remove any instances of an empty list from the input (using output as a stand-in here rather than initialising a whole new variable)
+        while (input.remove(output)){}
+
+        if (input.size()==0) {
+            return new ArrayList<Double>();
+        }
+
         for (int i=0; i<nrPlayers; i++) {
             output.add(i, 0.0);
         }
@@ -176,9 +177,15 @@ public class MiniMaxPlayer extends RandomPlayer {
         for (List<Double> i : input) {
             for (int j=0; j<i.size(); j++) {
                 double current = output.get(j);
-                output.set(j, (current+i.get(j))/input.size());
+                output.set(j, output.get(j)+i.get(j));
             }
         }
+
+        for (int i=0; i<output.size(); i++) {
+            output.set(i, output.get(i)/input.size());
+        }
+
+        System.out.println("Result " + output);
 
         return output;
     }
@@ -229,23 +236,19 @@ public class MiniMaxPlayer extends RandomPlayer {
                 countDead++;
             }
         }
-
+        
         //If player is the last one alive (and has therefore won the game)
         if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
-            return 1000;
+            return Double.MAX_VALUE;
         }
         
         //If player is dead
         else if (state.isDead(player)){
-            return -1000;
+            return -Double.MAX_VALUE;
         }
 
         else {
-            int utility=0;    
-            utility = -(Math.abs(state.getTargetX() - state.getPlayerX(player).get(0)) + Math.abs(state.getTargetY() - state.getPlayerY(player).get(0)));
-            utility += state.getSize(player) * 1000;
-
-            return utility;
+            return (state.getSize(player)*100)-(Math.abs(state.getTargetX() - state.getPlayerX(player).get(0)) + Math.abs(state.getTargetY() - state.getPlayerY(player).get(0)));
         }
     }
 
