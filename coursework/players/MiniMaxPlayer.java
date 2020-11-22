@@ -236,16 +236,16 @@ public class MiniMaxPlayer extends RandomPlayer {
         
         //If player is the last one alive (and has therefore won the game)
         if ((countDead == state.getNrPlayers()-1) && (!state.isDead(player))){
-            return Double.MAX_VALUE;
+            return 50000;
         }
         
         //If player is dead
         else if (state.isDead(player)){
-            return -Double.MAX_VALUE;
+            return -500000;
         }
 
         else {
-            return (state.getSize(player)*100)-(Math.abs(state.getTargetX() - state.getPlayerX(player).get(0)) + Math.abs(state.getTargetY() - state.getPlayerY(player).get(0)));
+            return (state.getSize(player)*1000)-(Math.abs(state.getTargetX() - state.getPlayerX(player).get(0)) + Math.abs(state.getTargetY() - state.getPlayerY(player).get(0)));
         }
     }
 
