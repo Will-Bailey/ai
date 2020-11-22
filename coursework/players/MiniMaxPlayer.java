@@ -1,3 +1,5 @@
+//This AI won 2 times out of 20 when given 100ms to compute it's moves
+
 package players;
 
 import java.util.ArrayList;
@@ -32,7 +34,7 @@ public class MiniMaxPlayer extends RandomPlayer {
      */
     public void doMove() {
         long startTime= System.currentTimeMillis();
-        long timeup = startTime + 90;
+        long timeup = startTime + 100;
         
         GameState state = this.state;
         int depth = 0;

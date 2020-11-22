@@ -17,10 +17,10 @@ import static players.RandomPlayer.rand;
  * @author william
  */
 
-public class MiniMaxPlayerOutdated extends RandomPlayer {
+public class NaiveMiniMaxPlayer extends RandomPlayer {
 
     //Basic constructor
-    public MiniMaxPlayerOutdated(GameState state, int index, Snake game) {
+    public NaiveMiniMaxPlayer(GameState state, int index, Snake game) {
         super(state, index, game);
     }
 
